@@ -2070,9 +2070,8 @@ trait HasAttributes
         } elseif ($this->isDateAttribute($key) || $this->isDateCastableWithCustomFormat($key)) {
             return $this->fromDateTime($attribute) ===
                 $this->fromDateTime($original);
-        } elseif ($this->hasCast($key, ['object', 'collection'])) {
-            return $this->fromJson($attribute) ===
-                $this->fromJson($original);
+        } elseif ($this->hasCast($key, ['array', 'json', 'object', 'collection'])) {
+            return $this->jsonIsEquivalent($attribute, $original);
         } elseif ($this->hasCast($key, ['real', 'float', 'double'])) {
             if ($original === null) {
                 return false;
@@ -2083,11 +2082,15 @@ trait HasAttributes
             return $this->castAttribute($key, $attribute) ===
                 $this->castAttribute($key, $original);
         } elseif ($this->isClassCastable($key) && Str::startsWith($this->getCasts()[$key], [AsArrayObject::class, AsCollection::class])) {
-            return $this->fromJson($attribute) === $this->fromJson($original);
+            return $this->jsonIsEquivalent($attribute, $original);
         } elseif ($this->isClassCastable($key) && Str::startsWith($this->getCasts()[$key], [AsEnumArrayObject::class, AsEnumCollection::class])) {
-            return $this->fromJson($attribute) === $this->fromJson($original);
+            return $this->jsonIsEquivalent($attribute, $original);
         } elseif ($this->isClassCastable($key) && $original !== null && Str::startsWith($this->getCasts()[$key], [AsEncryptedArrayObject::class, AsEncryptedCollection::class])) {
             return $this->fromEncryptedString($attribute) === $this->fromEncryptedString($original);
+        } elseif ($this->isClassCastable($key) && $this->resolveCasterClass($key) instanceof Json) {
+            return $this->jsonIsEquivalent($attribute, $original);
+        } elseif ($this->hasGetMutator($key) || $this->hasSetMutator($key) || $this->hasAttributeMutator($key)) {
+            return $this->jsonIsEquivalent($attribute, $original);
         }
 
         return is_numeric($attribute) && is_numeric($original)
@@ -2253,5 +2256,20 @@ trait HasAttributes
 
             return false;
         })->map->name->values()->all();
+    }
+
+    /**
+     * Checks whether two Json strings are the same and, if not, 
+     * whether the data decoded into an associative array is the same 
+     * without taking the order or types of the elements into account.
+     * 
+     * @param mixed $attribute
+     * @param mixed $original
+     * @return bool
+     */
+    public function jsonIsEquivalent($attribute, $original)
+    {
+        return $original == $attribute
+            ?: json_decode($attribute, true) == json_decode($original, true);
     }
 }
