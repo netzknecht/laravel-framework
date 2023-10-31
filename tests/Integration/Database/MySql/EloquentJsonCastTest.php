@@ -8,10 +8,10 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Casts\ArrayObject;
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Casts\AsCollection;
+use Illuminate\Database\Eloquent\Casts\AsEnumArrayObject;
+use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
 use Illuminate\Database\Eloquent\Casts\Attribute;
-use Illuminate\Database\Eloquent\Casts\Json;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Collection;
 
@@ -21,16 +21,15 @@ class EloquentJsonCastTest extends MySqlTestCase
 
     protected function defineDatabaseMigrationsAfterDatabaseRefreshed()
     {
-        Schema::create('test_models', function ($table) {
+        Schema::create('test_json_cast', function ($table) {
             $table->id();
-            $table->timestamps();
-            $table->json('test');
+            $table->json('json');
         });
     }
 
     protected function destroyDatabaseMigrations()
     {
-        Schema::drop('test_models');
+        Schema::drop('test_json_cast');
     }
 
     /**
@@ -39,7 +38,7 @@ class EloquentJsonCastTest extends MySqlTestCase
     public function testAttributeWithArrayCastIsCastedAsArray(): void
     {
         $model = TestModelWithArrayCast::create();
-        $this->assertIsArray($model->test);
+        $this->assertIsArray($model->json);
     }
 
     /**
@@ -75,7 +74,7 @@ class EloquentJsonCastTest extends MySqlTestCase
     public function testAttributeWithJsonCastIsCastedAsArray(): void
     {
         $model = TestModelWithJsonCast::create();
-        $this->assertIsArray($model->test);
+        $this->assertIsArray($model->json);
     }
 
     /**
@@ -111,7 +110,7 @@ class EloquentJsonCastTest extends MySqlTestCase
     public function testAttributeWithCollectionCastIsCastedAsCollection(): void
     {
         $model = TestModelWithCollectionCast::create();
-        $this->assertInstanceOf(Collection::class, $model->test);
+        $this->assertInstanceOf(Collection::class, $model->json);
     }
 
     /**
@@ -147,7 +146,7 @@ class EloquentJsonCastTest extends MySqlTestCase
     public function testAttributeWithObjectCastIsCastedAsObject(): void
     {
         $model = TestModelWithObjectCast::create();
-        $this->assertInstanceOf(\stdClass::class, $model->test);
+        $this->assertInstanceOf(\stdClass::class, $model->json);
     }
 
     /**
@@ -183,7 +182,7 @@ class EloquentJsonCastTest extends MySqlTestCase
     public function testAttributeWithAsArrayObjectCastIsCastedAsObject(): void
     {
         $model = TestModelWithAsArrayObjectCast::create();
-        $this->assertInstanceOf(ArrayObject::class, $model->test);
+        $this->assertInstanceOf(ArrayObject::class, $model->json);
     }
 
     /**
@@ -219,7 +218,7 @@ class EloquentJsonCastTest extends MySqlTestCase
     public function testAttributeWithAsCollectionCastIsCastedAsObject(): void
     {
         $model = TestModelWithAsCollectionCast::create();
-        $this->assertInstanceOf(Collection::class, $model->test);
+        $this->assertInstanceOf(Collection::class, $model->json);
     }
 
     /**
@@ -255,7 +254,7 @@ class EloquentJsonCastTest extends MySqlTestCase
     public function testAttributeWithCustomJsonCastIsCastedAsArray(): void
     {
         $model = TestModelWithCustomJsonCast::create();
-        $this->assertIsArray($model->test);
+        $this->assertIsArray($model->json);
     }
 
     /**
@@ -291,7 +290,7 @@ class EloquentJsonCastTest extends MySqlTestCase
     public function testAttributeWithAccessorAndMutatorMethodIsCastedAsArray(): void
     {
         $model = TestModelWithAccessorAndMutatorMethod::create();
-        $this->assertIsArray($model->test);
+        $this->assertIsArray($model->json);
     }
 
     /**
@@ -327,7 +326,7 @@ class EloquentJsonCastTest extends MySqlTestCase
     public function testAttributeWithAccessorAndMutatorCastIsCastedAsArray(): void
     {
         $model = TestModelWithAccessorAndMutatorCast::create();
-        $this->assertIsArray($model->test);
+        $this->assertIsArray($model->json);
     }
 
     /**
@@ -363,7 +362,7 @@ class EloquentJsonCastTest extends MySqlTestCase
     public function testAttributeWithModelCastIsCastedAsArray(): void
     {
         $model = TestModelWithModelCast::create();
-        $this->assertInstanceOf(TestModelCastable::class, $model->test);
+        $this->assertInstanceOf(TestModelCastable::class, $model->json);
     }
 
     /**
@@ -393,31 +392,94 @@ class EloquentJsonCastTest extends MySqlTestCase
         $this->assertTrue($model->isDirty());
     }
 
+    /**
+     * Test if attribute with "AsEnumArrayObject::class" cast is casted as "ArrayObject::class"
+     * with "TestEnum::class" values
+     */
+    public function testAttributeWithAsEnumArrayObjectCastIsCastedAsArrayObject(): void
+    {
+        $model = TestModelWithAsEnumArrayObjectCast::create();
+        $this->assertInstanceOf(ArrayObject::class, $model->json);
+        collect($model->json)->every(fn($enum) => $this->assertInstanceOf(TestEnum::class, $enum));
+    }
+
+    /**
+     * Test if a not modified attribute with "AsEnumArrayObject::class" cast is clean
+     */
+    public function testNotModifiedAttributeWithAsEnumArrayObjectCastIsClean(): void
+    {
+        $model = TestModelWithAsEnumArrayObjectCast::notModified();
+        $this->assertTrue($model->isClean());
+    }
+
+    /**
+     * Test if a modified and not equal attribute with "AsEnumArrayObject::class" cast is dirty
+     */
+    public function testModifiedAttributeWithAsEnumArrayObjectCastIsDirty(): void
+    {
+        $model = TestModelWithAsEnumArrayObjectCast::modified();
+        $this->assertTrue($model->isDirty());
+    }
+
+    /**
+     * Test if attribute with "AsEnumCollection::class" cast is casted as "Collection::class"
+     * with "TestEnum::class" values
+     */
+    public function testAttributeWithAsEnumCollectionCastIsCastedAsEnumCollection(): void
+    {
+        $model = TestModelWithAsEnumCollectionCast::create();
+        $this->assertInstanceOf(Collection::class, $model->json);
+        $model->json->every(fn($enum) => $this->assertInstanceOf(TestEnum::class, $enum));
+    }
+
+    /**
+     * Test if a not modified attribute with "AsEnumCollection::class" cast is clean
+     */
+    public function testNotModifiedAttributeWithAsEnumCollectionCastIsClean(): void
+    {
+        $model = TestModelWithAsEnumCollectionCast::notModified();
+        $this->assertTrue($model->isClean());
+    }
+
+    /**
+     * Test if a modified and not equal attribute with "AsEnumCollection::class" cast is dirty
+     */
+    public function testModifiedAttributeWithAsEnumCollectionCastIsDirty(): void
+    {
+        $model = TestModelWithAsEnumCollectionCast::modified();
+        $this->assertTrue($model->isDirty());
+    }
+
 }
 
 abstract class TestModel extends Model
 {
-    protected $table = 'test_models';
 
-    protected $fillable = ['test'];
+    protected $table = 'test_json_cast';
+
+    public $timestamps = false;
+
+    protected $guarded = [];
 
     static public function booted()
     {
-        static::creating(fn($model) => $model->test = [
-            'name' => fake()->name(),
-            'description' => fake()->sentence(10, true),
-            'tags' => fake()->words(3),
-        ]);
+        static::creating(
+            fn($model) => $model->json = [
+                'name' => fake()->name(),
+                'description' => fake()->sentence(10, true),
+                'tags' => fake()->words(3),
+            ]
+        );
     }
 
     public function getAttributeAsArray(): array
     {
-        return $this->getAttribute('test');
+        return $this->getAttribute('json');
     }
 
     public function setAttributeFromArray(array $array): void
     {
-        $this->setAttribute('test', $array);
+        $this->setAttribute('json', $array);
     }
 
     static public function notModified(): TestModel
@@ -461,86 +523,139 @@ abstract class TestModel extends Model
 
 class TestModelWithArrayCast extends TestModel
 {
-    protected $casts = ['test' => 'array'];
+    protected $casts = ['json' => 'array'];
 }
 
 class TestModelWithJsonCast extends TestModel
 {
-    protected $casts = ['test' => 'json'];
+    protected $casts = ['json' => 'json'];
 }
 
 class TestModelWithCollectionCast extends TestModel
 {
-    protected $casts = ['test' => 'collection'];
+    protected $casts = ['json' => 'collection'];
 
     public function getAttributeAsArray(): array
     {
-        return $this->getAttribute('test')->all();
+        return $this->getAttribute('json')->all();
     }
 
     public function setAttributeFromArray(array $array): void
     {
-        $this->setAttribute('test', collect($array));
+        $this->setAttribute('json', collect($array));
     }
 }
 
 class TestModelWithObjectCast extends TestModel
 {
-    protected $casts = ['test' => 'object'];
+    protected $casts = ['json' => 'object'];
 
     public function getAttributeAsArray(): array
     {
-        return get_object_vars($this->getAttribute('test'));
+        return get_object_vars($this->getAttribute('json'));
     }
 
     public function setAttributeFromArray(array $array): void
     {
-        $this->setAttribute('test', json_decode(json_encode($array)));
+        $this->setAttribute('json', json_decode(json_encode($array)));
     }
 
 }
 
 class TestModelWithAsArrayObjectCast extends TestModel
 {
-    protected $casts = ['test' => AsArrayObject::class];
+    protected $casts = ['json' => AsArrayObject::class];
 
     public function getAttributeAsArray(): array
     {
-        return $this->getAttribute('test')->toArray();
+        return $this->getAttribute('json')->toArray();
     }
 
     public function setAttributeFromArray(array $array): void
     {
-        $this->setAttribute('test', new ArrayObject($array));
+        $this->setAttribute('json', new ArrayObject($array));
     }
 }
 
 class TestModelWithAsCollectionCast extends TestModelWithCollectionCast
 {
-    protected $casts = ['test' => AsCollection::class];
+    protected $casts = ['json' => AsCollection::class];
 }
 
 class TestModelWithCustomJsonCast extends TestModelWithJsonCast
 {
-    protected $casts = ['test' => CustomJsonCast::class];
+    protected $casts = ['json' => CustomJsonCast::class];
+}
+
+abstract class TestModelWithEnumsCast extends TestModel
+{
+    static public function booted()
+    {
+        static::creating(fn($model) => $model->json = [
+            TestEnum::TestEnumValueA,
+            TestEnum::TestEnumValueB,
+        ]);
+    }
+
+    static public function modified(): TestModel
+    {
+        $model = static::create();
+        $attribute = $model->getAttributeAsArray();
+
+        $attribute[] = TestEnum::TestEnumValueC;
+
+        $model->setAttributeFromArray($attribute);
+        return $model;
+    }
+
+}
+
+class TestModelWithAsEnumArrayObjectCast extends TestModelWithEnumsCast
+{
+    protected $casts = ['json' => AsEnumArrayObject::class . ':' . TestEnum::class];
+
+    public function getAttributeAsArray(): array
+    {
+        return $this->getAttribute('json')->toArray();
+    }
+
+    public function setAttributeFromArray(array $array): void
+    {
+        $this->setAttribute('json', new ArrayObject($array));
+    }
+}
+
+class TestModelWithAsEnumCollectionCast extends TestModelWithEnumsCast
+{
+    protected $casts = ['json' => AsEnumCollection::class . ':' . TestEnum::class];
+
+    public function getAttributeAsArray(): array
+    {
+        return $this->getAttribute('json')->toArray();
+    }
+
+    public function setAttributeFromArray(array $array): void
+    {
+        $this->setAttribute('json', collect($array));
+    }
 }
 
 class TestModelWithAccessorAndMutatorMethod extends TestModel
 {
-    public function getTestAttribute($value)
+    public function getJsonAttribute($value)
     {
         return json_decode($value, true);
     }
 
-    public function setTestAttribute($value)
+    public function setJsonAttribute($value)
     {
-        $this->attributes['test'] = json_encode($value);
+        $this->attributes['json'] = json_encode($value);
     }
 }
 
 class TestModelWithAccessorAndMutatorCast extends TestModel
 {
-    protected function test(): Attribute
+    protected function json(): Attribute
     {
         return Attribute::make(
             get: fn(string $value) => json_decode($value, true),
@@ -549,7 +664,7 @@ class TestModelWithAccessorAndMutatorCast extends TestModel
     }
 }
 
-class CustomJsonCast extends Json implements CastsAttributes
+class CustomJsonCast implements CastsAttributes
 {
     /**
      * Cast the given value.
@@ -559,7 +674,7 @@ class CustomJsonCast extends Json implements CastsAttributes
      */
     public function get(Model $model, string $key, mixed $value, array $attributes): array
     {
-        return $this->decode($value);
+        return json_decode($value, true);
     }
 
     /**
@@ -569,22 +684,22 @@ class CustomJsonCast extends Json implements CastsAttributes
      */
     public function set(Model $model, string $key, mixed $value, array $attributes): string
     {
-        return $this->encode($value);
+        return json_encode($value);
     }
 }
 
 class TestModelWithModelCast extends TestModel
 {
-    protected $casts = ['test' => TestModelCastable::class];
+    protected $casts = ['json' => TestModelCastable::class];
 
     public function getAttributeAsArray(): array
     {
-        return $this->getAttribute('test')->toArray();
+        return $this->getAttribute('json')->toArray();
     }
 
     public function setAttributeFromArray(array $array): void
     {
-        $this->setAttribute('test', new TestModelCastable($array));
+        $this->setAttribute('json', new TestModelCastable($array));
     }
 }
 
@@ -613,7 +728,7 @@ class TestModelCastable implements Castable, Arrayable
 
     public static function castUsing(array $arguments): CastsAttributes
     {
-        return new class extends Json implements CastsAttributes {
+        return new class implements CastsAttributes {
             /**
              * Cast the given value.
              *
@@ -622,7 +737,7 @@ class TestModelCastable implements Castable, Arrayable
              */
             public function get(Model $model, string $key, mixed $value, array $attributes): TestModelCastable
             {
-                return new TestModelCastable($this->decode($value));
+                return new TestModelCastable(json_decode($value, true));
             }
 
             /**
@@ -635,9 +750,17 @@ class TestModelCastable implements Castable, Arrayable
                 if ($value instanceof TestModelCastable) {
                     $value = $value->toArray();
                 }
-                return $this->encode($value);
+                return json_encode($value);
             }
         };
     }
+
+}
+
+enum TestEnum
+{
+    case TestEnumValueA;
+    case TestEnumValueB;
+    case TestEnumValueC;
 
 }

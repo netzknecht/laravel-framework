@@ -2081,15 +2081,9 @@ trait HasAttributes
         } elseif ($this->hasCast($key, static::$primitiveCastTypes)) {
             return $this->castAttribute($key, $attribute) ===
                 $this->castAttribute($key, $original);
-        } elseif ($this->isClassCastable($key) && Str::startsWith($this->getCasts()[$key], [AsArrayObject::class, AsCollection::class])) {
-            return $this->jsonIsEquivalent($attribute, $original);
-        } elseif ($this->isClassCastable($key) && Str::startsWith($this->getCasts()[$key], [AsEnumArrayObject::class, AsEnumCollection::class])) {
-            return $this->jsonIsEquivalent($attribute, $original);
         } elseif ($this->isClassCastable($key) && $original !== null && Str::startsWith($this->getCasts()[$key], [AsEncryptedArrayObject::class, AsEncryptedCollection::class])) {
             return $this->fromEncryptedString($attribute) === $this->fromEncryptedString($original);
-        } elseif ($this->isClassCastable($key) && $this->resolveCasterClass($key) instanceof Json) {
-            return $this->jsonIsEquivalent($attribute, $original);
-        } elseif ($this->hasGetMutator($key) || $this->hasSetMutator($key) || $this->hasAttributeMutator($key)) {
+        } elseif ($this->isClassCastable($key) || $this->hasMutator($key)) {
             return $this->jsonIsEquivalent($attribute, $original);
         }
 
@@ -2259,8 +2253,22 @@ trait HasAttributes
     }
 
     /**
-     * Checks whether two Json strings are the same and, if not, 
-     * whether the data decoded into an associative array is the same 
+     * Determine if a get, set or "Attribute" return type marked 
+     * mutator exists for an attribute.
+     *
+     * @param  string  $key
+     * @return bool
+     */
+    protected function hasMutator($key)
+    {
+        return $this->hasGetMutator($key)
+            || $this->hasSetMutator($key)
+            || $this->hasAttributeMutator($key);
+    }
+
+    /**
+     * Checks whether strings are the same and if not, try to decode the 
+     * string as json into an associative array and and compare them 
      * without taking the order or types of the elements into account.
      * 
      * @param mixed $attribute
@@ -2269,7 +2277,13 @@ trait HasAttributes
      */
     public function jsonIsEquivalent($attribute, $original)
     {
-        return $original == $attribute
-            ?: json_decode($attribute, true) == json_decode($original, true);
+        if ($original === $attribute) return true;
+        try {
+            $attribute = json_decode($attribute, true, 512, JSON_THROW_ON_ERROR);
+            $original = json_decode($original, true, 512, JSON_THROW_ON_ERROR);
+            return $attribute == $original;
+        } catch (\JsonException $e) {
+            return false;
+        }
     }
 }
